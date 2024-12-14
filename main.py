@@ -4,12 +4,13 @@ from pathlib import Path
 import click
 from bs4 import BeautifulSoup
 from loguru import logger
-from scrapingant_client import ScrapingAntClient
+from scrapingant_client import ScrapingAntClient  # type: ignore
 from tqdm import tqdm
 
 from scraper.content_scraper import save_content
 from scraper.nav_scraper import extract_navigation_links
-from scraper.utils import create_title_from_url
+from scraper.scraping_ant_utils import save_scraping_response
+from scraper.utils import create_dir_name_from_netloc, create_title_from_url
 
 
 def get_default_downloads_dir() -> Path:
@@ -52,15 +53,19 @@ def main(url: str, api_key: str, output_dir: Path):
     # Setup client
     client = ScrapingAntClient(token=api_key)
 
-    # Create output file
+    # Create domain-specific directory inside output_dir
+    dir_name = create_dir_name_from_netloc(url)
+    domain_dir = output_dir / dir_name
     try:
-        output_dir.mkdir(parents=True, exist_ok=True)
+        domain_dir.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         raise click.ClickException(
-            f"Permission denied: Cannot create directory {output_dir}"
+            f"Permission denied: Cannot create directory {domain_dir}"
         )
 
-    output_path = output_dir / f"{create_title_from_url(url)}.txt"
+    # Update output path to use domain directory
+    base_html_title = create_title_from_url(url)
+    output_path = domain_dir / f"{base_html_title}.txt"
     logger.info(f"Output will be saved to: {output_path}")
 
     # Initialize output file
@@ -70,22 +75,35 @@ def main(url: str, api_key: str, output_dir: Path):
     except PermissionError:
         raise click.ClickException(f"Permission denied: Cannot write to {output_path}")
 
-    try:
-        # Get links
-        response = client.general_request(url)
-        soup = BeautifulSoup(response.content, "html.parser")
-        links = extract_navigation_links(soup)
+    # try:
+    # Get links using ScrapingAnt API
+    response = client.general_request(url)
 
-        if not links:
-            raise click.ClickException("No navigation links found on the page.")
+    # Save response for debugging
+    debug_path = save_scraping_response(
+        response=response,
+        title=base_html_title,
+        output_dir=domain_dir,
+    )
 
-        # Save content
-        for link in tqdm(links, desc="Extracting content"):
-            save_content(link, output_path)
+    # parse it as a BeautifulSoup object
+    soup = BeautifulSoup(response.content, "html.parser")
 
-        logger.success("Content extracted successfully.")
-    except Exception as e:
-        raise click.ClickException(f"An error occurred: {e}")
+    # extract navigation links from the <nav> bar
+    links = extract_navigation_links(soup, url)
+
+    if not links:
+        raise click.ClickException(
+            f"No navigation links found on the page.\nCheck: {debug_path}"
+        )
+
+    # Save content
+    for link in tqdm(links, desc="Extracting content"):
+        save_content(link, output_path)
+
+    logger.success("Content extracted successfully.")
+    # except Exception as e:
+    #     raise click.ClickException(f"An error occurred: {e}")
 
 
 if __name__ == "__main__":
