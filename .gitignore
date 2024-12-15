@@ -10,3 +10,4 @@ wheels/
 .venv
 *.txt
 .pytest_cache
+.mypy_cache

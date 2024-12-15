@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -32,3 +33,11 @@ def create_dir_name_from_netloc(url: str) -> str:
     clean_name = re.sub(r"[^a-z0-9]+", "_", netloc)
     # Remove leading/trailing underscores
     return clean_name.strip("_")
+
+
+def get_default_downloads_dir() -> Path:
+    """Get the default downloads directory for the current OS."""
+    if os.name == "nt":  # Windows
+        return Path.home() / "Downloads"
+    else:  # macOS and Linux
+        return Path.home() / "Downloads"
