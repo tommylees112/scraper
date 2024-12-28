@@ -29,23 +29,32 @@ def create_cli_options(command: click.Command) -> click.Command:
             show_default="Downloads folder",
             help="Directory to save the output file.",
         ),
+        # Link extraction options (for finding navigation links on the base page)
         click.option(
-            "--tag", default="nav", help="HTML tag to use for extracting the links"
+            "--link-tag",
+            default="nav",
+            help="HTML tag to use for finding navigation links on the base page (e.g., 'nav' for navigation menus)",
         ),
-        click.option("--class-name", help="Exact class name to match"),
+        click.option(
+            "--link-class-name",
+            help="Exact class name to match when finding navigation links (e.g., 'main-nav' or 'sidebar-menu')",
+        ),
         click.option(
             "-c",
-            "--class-contains",
-            help="String that should be contained in the class name",
+            "--link-class-contains",
+            help="String that should be contained in the class name when finding navigation links",
         ),
-        click.option("--id", help="ID of the element"),
+        click.option(
+            "--link-id",
+            help="ID of the element containing navigation links (e.g., 'main-navigation')",
+        ),
         click.option(
             "--save-html",
             is_flag=True,
             help="Save HTML content for each scraped page",
         ),
         click.option(
-            "--overwrite-html",
+            "--overwrite",
             is_flag=True,
             help="Overwrite existing HTML files even if they exist",
         ),
@@ -54,18 +63,28 @@ def create_cli_options(command: click.Command) -> click.Command:
             is_flag=True,
             help="Use ScrapingAnt for content scraping (requires API key)",
         ),
+        # Text extraction options (for extracting content from linked pages)
         click.option(
-            "--text-tag", default="div", help="HTML tag to use for text extraction"
+            "--text-tag",
+            default="div",
+            help="HTML tag to use for extracting text content from linked pages (e.g., 'article' or 'main')",
         ),
         click.option(
-            "--text-class-name", help="Exact class name to match for text extraction"
+            "--text-class-name",
+            help="Exact class name to match when extracting text content (e.g., 'content' or 'article-body')",
         ),
         click.option(
             "--text-class-contains",
-            help="String that should be contained in the text element's class name",
+            help="String that should be contained in the class name when extracting text content",
         ),
-        click.option("--text-id", help="ID of the text element"),
-        click.option("--text-role", help="Role attribute of the text element"),
+        click.option(
+            "--text-id",
+            help="ID of the element containing the main text content (e.g., 'main-content')",
+        ),
+        click.option(
+            "--text-role",
+            help="ARIA role attribute of the text content element (e.g., 'main' or 'article')",
+        ),
     ]
 
     for option in options:

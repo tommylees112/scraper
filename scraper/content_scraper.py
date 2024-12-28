@@ -48,7 +48,7 @@ def save_content(
     client: Optional[ScrapingAntClient] = None,
     processed_pages: Optional[List[ScrapingPage]] = None,
     log_path: Optional[Path] = None,
-    overwrite_html: bool = False,
+    overwrite: bool = False,
 ) -> bool:
     """
     Save content from a link to a file.
@@ -62,17 +62,21 @@ def save_content(
         client: ScrapingAnt API key (required if use_scraping_ant is True)
         processed_pages: List of already processed ScrapingPage entries
         log_path: Path to the logging CSV file
-        overwrite_html: Whether to overwrite existing HTML files
+        overwrite: Whether to overwrite existing HTML files
 
     Returns:
         bool: True if content was processed, False if skipped
     """
-    if should_skip_url(link.href, processed_pages, overwrite_html):
+    if should_skip_url(link.href, processed_pages, overwrite):
         return False
 
     if use_scraping_ant:
         if not client:
             raise ValueError("Client is required when using ScrapingAnt")
+
+        assert isinstance(
+            client, ScrapingAntClient
+        ), f"Client is not a ScrapingAntClient: {type(client)}"
         html_content, soup = get_content_with_scraping_ant(link.href, client)
     else:
         html_content, soup = get_content_with_requests(link.href)
@@ -80,7 +84,7 @@ def save_content(
     # Save HTML content if html_dir is provided
     if html_dir:
         html_path = html_dir / f"{link.title}.html"
-        if overwrite_html or not html_path.exists():
+        if overwrite or not html_path.exists():
             with open(html_path, "w") as f:
                 f.write(html_content)
 

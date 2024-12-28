@@ -1,11 +1,15 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
+import requests
 from loguru import logger
 from scrapingant_client.response import Response  # type: ignore
 
 
-def save_scraping_response(response: Response, title: str, output_dir: Path) -> Path:
+def save_scraping_response(
+    response: Union[Response, requests.Response], title: str, output_dir: Path
+) -> Path:
     """
     Save ScrapingAnt response to a file for debugging purposes.
 

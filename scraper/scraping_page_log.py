@@ -37,7 +37,7 @@ class ScrapingPage:
 def should_skip_url(
     url: str,
     processed_pages: Optional[List[ScrapingPage]],
-    overwrite_html: bool = False,
+    overwrite: bool = False,
 ) -> bool:
     """
     Check if a URL should be skipped based on existing pages.
@@ -45,7 +45,7 @@ def should_skip_url(
     Args:
         url: The URL to check
         processed_pages: List of already processed ScrapingPage entries
-        overwrite_html: Whether to overwrite existing pages
+        overwrite: Whether to overwrite existing pages
 
     Returns:
         bool: True if the URL should be skipped, False otherwise
@@ -58,7 +58,7 @@ def should_skip_url(
     if existing_pages:
         # Only skip if there's a successful page or if we're not overwriting
         successful_pages = [page for page in existing_pages if page.status == "success"]
-        if successful_pages or not overwrite_html:
+        if successful_pages or not overwrite:
             logger.info(f"Skipping already processed URL: {url}")
             return True
 

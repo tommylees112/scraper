@@ -23,7 +23,7 @@ def create_dir_name_from_netloc(url: str) -> str:
     """Convert a URL's netloc into a snake_case directory name.
 
     Example:
-        'https://www.palantir.com/docs' -> 'www_palantir_com'
+        'https://moz.com/beginners-guide-to-seo' -> 'moz_com'
     """
     parsed = urlparse(url)
     netloc = parsed.netloc.lower()

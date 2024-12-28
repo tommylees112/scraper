@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -6,18 +7,17 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from scrapingant_client import ScrapingAntClient  # type: ignore
 from tqdm import tqdm
-from typer import Typer
 
 from scraper.cli import create_cli_options, format_options_overview
 from scraper.config import LinkConfig, TextConfig
 from scraper.content_scraper import save_content
+from scraper.content_scrapers import MockClient
 from scraper.link_scraper import extract_links
 from scraper.scraping_ant_utils import save_scraping_response
 from scraper.scraping_page_log import (
     ScrapingPage,
     append_to_page_log,
     load_or_create_page_log,
-    should_skip_url,
 )
 from scraper.utils import create_dir_name_from_netloc, create_title_from_url
 
@@ -29,12 +29,12 @@ def main(
     url: str,
     api_key: str,
     output_dir: Path,
-    tag: str,
-    class_name: Optional[str],
-    class_contains: Optional[str],
-    id: Optional[str],
+    link_tag: str,
+    link_class_name: Optional[str],
+    link_class_contains: Optional[str],
+    link_id: Optional[str],
     save_html: bool,
-    overwrite_html: bool,
+    overwrite: bool,
     use_scraping_ant: bool,
     text_tag: str,
     text_class_name: Optional[str],
@@ -46,7 +46,7 @@ def main(
     Scrape documentation from a given URL.
 
     URL should be a valid documentation page, e.g.:
-    https://www.palantir.com/docs/foundry/ontology/overview
+    https://moz.com/beginners-guide-to-seo
 
     The output will be saved to your Downloads folder by default.
     """
@@ -61,6 +61,10 @@ def main(
     logger.info(format_options_overview(**options))
 
     # 1. SCRAPING ANT TO GET THE BASE PAGE
+    # get api key from os.environ if None
+    if not api_key:
+        api_key = os.environ.get("SCRAPING_ANT_API_KEY")
+
     # Validate API key if using ScrapingAnt
     if use_scraping_ant and not api_key:
         raise click.UsageError(
@@ -68,7 +72,11 @@ def main(
         )
 
     # Setup client for initial page scraping
-    client = ScrapingAntClient(token=api_key) if use_scraping_ant else None
+    if use_scraping_ant:
+        client = ScrapingAntClient(token=api_key) if use_scraping_ant else None
+    else:
+        # set teh client to have a general_request() method that uses requests. Mock this behaviour
+        client = MockClient()
 
     # 2. SETUP THE directory, logging, txt output file
     # Create domain-specific directory inside output_dir
@@ -85,12 +93,9 @@ def main(
     log_path = domain_dir / "logs.csv"
     processed_pages = load_or_create_page_log(log_path)
 
-    # Check if we should skip the base URL
-    if should_skip_url(url, processed_pages, overwrite_html):
-        logger.info(
-            "Base URL already processed successfully. Use --overwrite-html to force reprocessing."
-        )
-        return
+    # Log if we're reprocessing an already processed URL
+    if any(page.url == url for page in processed_pages):
+        logger.info("Reprocessing previously scraped URL due to --overwrite flag")
 
     # Log the base URL scraping
     base_html_title = create_title_from_url(url)
@@ -110,10 +115,18 @@ def main(
         html_dir.mkdir(parents=True, exist_ok=True)
 
     # 3. GET LINKS FROM BASE PAGE
-    # Get links using ScrapingAnt API
+    # Get links using ScrapingAnt API or requests
     if not client:
-        raise click.ClickException("ScrapingAnt client not initialized")
-    response = client.general_request(url)
+        if use_scraping_ant:
+            raise click.ClickException("ScrapingAnt client not initialized")
+        else:
+            # html_content, soup = get_content_with_requests(url)
+            response = client.general_request(url)
+    else:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+        }
+        response = client.general_request(url, kwargs=dict(headers=headers))
 
     # Save response for debugging
     if html_dir:
@@ -138,7 +151,10 @@ def main(
     soup = BeautifulSoup(response.content, "html.parser")
 
     config = LinkConfig(
-        tag=tag, class_name=class_name, class_contains=class_contains, id=id
+        tag=link_tag,
+        class_name=link_class_name,
+        class_contains=link_class_contains,
+        id=link_id,
     )
 
     text_config = TextConfig(
@@ -150,7 +166,7 @@ def main(
     )
 
     # extract links from the base page
-    links = extract_links(soup, url, config)
+    links = extract_links(soup, url)
 
     if not links:
         raise click.ClickException(
@@ -169,7 +185,7 @@ def main(
                 client=client if use_scraping_ant else None,
                 processed_pages=processed_pages,
                 log_path=log_path,
-                overwrite_html=overwrite_html,
+                overwrite=overwrite,
             )
         except Exception as e:
             # Log failed scraping
@@ -184,8 +200,5 @@ def main(
             processed_pages.append(page_entry)
 
 
-app = Typer()
-app.command()(main)  # This properly types the CLI command
-
 if __name__ == "__main__":
-    app()
+    main()
